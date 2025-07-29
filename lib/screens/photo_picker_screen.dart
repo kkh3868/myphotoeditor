@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:myphotoeditor/screens/photo_editor_screen.dart';
 import 'dart:io';
 
 /// 사진을 갤러리에서 선택해 보여주는 화면
@@ -20,9 +21,12 @@ class _PhotoPickerScreenState extends State<PhotoPickerScreen> {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null){
-      setState((){
-        _image = File(pickedFile.path);
-      });
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PhotoEditorScreen(imagePath: pickedFile.path),
+        ),
+      );
     }
   }
 
