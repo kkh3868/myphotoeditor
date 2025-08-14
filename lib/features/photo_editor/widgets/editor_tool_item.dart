@@ -39,7 +39,7 @@ class EditorToolItem extends StatelessWidget {
             mainAxisSize: MainAxisSize.min, // 컬럼이 내용만큼만 크기 차지
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Icon(icon, color: itemColor, size: 28.0), // 아이콘 크기 조절
+              Icon(icon, color: itemColor, size: 20.0), // 아이콘 크기 조절
               const SizedBox(height: 4.0), // 아이콘과 텍스트 사이 간격
               Text(
                 label,
