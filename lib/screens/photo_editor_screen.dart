@@ -42,6 +42,17 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen>{
       });
     }
   }
+  
+  void _completeEditing(){
+    // Case1: 현재 편집된 이미지 파일의 경로를 이전 화면으로 반환
+    if (_editedImageFile != null){
+      Navigator.pop(context, _editedImageFile!.path);
+    }
+    // Case2: 편집된 이미지 파일이 없을 경우 아무것도 반환하지 않음
+    else {
+      Navigator.pop(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +69,12 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen>{
       // 앱 상단 바 제목
       appBar: AppBar(
         title: Text('사진 편집'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.check),
+            onPressed: _completeEditing,
+          ),
+        ],
       ),
       body: Center(
         child: Image.file(_editedImageFile!),
