@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:myphotoeditor/screens/photo_editor_screen.dart';
+import 'package:myphotoeditor/database/database_helper.dart';
 import 'dart:io';
 
 /// 사진을 갤러리에서 선택해 보여주는 화면
@@ -14,11 +15,32 @@ class PhotoPickerScreen extends StatefulWidget {
 /// 사진 파일을 저장하고, 갤러리에서 사진을 선택하는 기능 포함
 class _PhotoPickerScreenState extends State<PhotoPickerScreen> {
   List<String> _imagePaths = [];
-  final _picker = ImagePicker();
+  final ImagePicker _picker = ImagePicker();
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImagesFromDb();
+  }
+
+  Future<void> _loadImagesFromDb() async {
+    final List<String> loadedPaths = await _dbHelper.getAllImagePaths();
+    
+    // 마운트 상태 확인
+    if (!mounted) return;
+
+    setState(() {
+      _imagePaths = loadedPaths;
+    });
+  }
 
   /// 갤러리에서 사진을 선택하는 함수
   Future<void> _pickImage() async {
     final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+
+    // 마운트 상태 확인
+    if (!mounted) return;
 
     if (pickedFile != null){
       _navigateToEditor(pickedFile.path, isNewImage: true);
@@ -26,24 +48,34 @@ class _PhotoPickerScreenState extends State<PhotoPickerScreen> {
   }
 
   Future<void> _navigateToEditor(String imagePath, {int? indexToReplace, bool isNewImage = false}) async {
-   // PhotoEditorScreen을 호출하고 결과를 기다림
+    // 마운트 상태 확인
+    if (!mounted) return;
+
+    // PhotoEditorScreen을 호출하고 결과를 기다림
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => PhotoEditorScreen(imagePath: imagePath)),
     );
 
+    // 마운트 상태 재확인
+    if (!mounted) return;
+
     // PhotoEditorScreen에서 반환한 결과를 처리
-    if (result != null && result is String) {
-      setState((){
-        // Case1: 새 이미지였다면 리스트에 추가
-        if (isNewImage){
-          _imagePaths.add(result);
+    if (result != null && result.isNotEmpty) {
+      // Case1: 새 이미지를 DB에 추가
+      if (isNewImage) {
+        await _dbHelper.insertImage(result);
+      }
+      // Case2: 기존 이미지를 편집한 경우
+      else if (indexToReplace != null) {
+        String oldPath = _imagePaths[indexToReplace];
+        if(oldPath != result) {
+          await _dbHelper.deleteImage(oldPath);
+          await _dbHelper.insertImage(result);
         }
-        // Case2: 기존 이미지를 편집한 것이라면 해당 인덱스의 이미지를 교체
-        else if (indexToReplace != null && indexToReplace < _imagePaths.length){
-          _imagePaths[indexToReplace] = result;
-        }
-      });
+      }
+      // DB에서 최신 이미지 목록을 다시 로드
+      _loadImagesFromDb();
     }
   }
 
@@ -109,8 +141,7 @@ class _PhotoPickerScreenState extends State<PhotoPickerScreen> {
                         // 삭제 확인 다이얼로그 (선택 사항)
                         showDialog(
                             context: context,
-                            builder: (
-                                BuildContext context) { // 'context' 변수명 수정
+                            builder: (BuildContext dialogContext) { // 'context' 변수명 수정
                               return AlertDialog(
                                 title: const Text('이미지 삭제'),
                                 content: const Text('이 이미지를 삭제하시겠습니까?'),
@@ -122,13 +153,12 @@ class _PhotoPickerScreenState extends State<PhotoPickerScreen> {
                                     },
                                   ),
                                   TextButton(
-                                    child: const Text('삭제',
-                                        style: TextStyle(color: Colors.red)),
-                                    onPressed: () {
-                                      setState(() {
-                                        _imagePaths.removeAt(index);
-                                      });
-                                      Navigator.of(context).pop();
+                                    child: const Text('삭제', style: TextStyle(color: Colors.red)),
+                                    onPressed: () async {
+                                      await _dbHelper.deleteImage(imagePath);
+                                      if (!mounted) return;
+                                      Navigator.of(dialogContext).pop();
+                                      _loadImagesFromDb();
                                     },
                                   ),
                                 ],
@@ -139,7 +169,7 @@ class _PhotoPickerScreenState extends State<PhotoPickerScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(4.0),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withValues(alpha: 0.5),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
